@@ -1,40 +1,55 @@
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
-import { verify } from "jsonwebtoken";
+import { verify, JwtPayload } from "jsonwebtoken";
 import { config } from "../config"; // Adjust the path to your config file
+
+// Custom interface for JWT payload
+interface DecodedUser {
+  sub: string;   // User ID
+  role: string;  // User role
+  email: string; // User email
+}
+
+// Extend Express Request to include 'user'
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      user?: DecodedUser;
+    }
+  }
+}
 
 // JWT Verification Middleware
 const jwtMiddleware = (req: Request, _res: Response, next: NextFunction) => {
-  // Check for Authorization header
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return next(createHttpError(401, "No token provided or invalid token format."));
+    return next(createHttpError(401, "Authentication token is missing or invalid."));
   }
 
-  // Extract token from Authorization header
   const token = authHeader.split(" ")[1];
 
   try {
-    // Verify the token and decode its payload
-    const decoded = verify(token, config.jwtSecret as string) as { sub: string, role: string, email: string }; // Adjust payload type as needed
+    // Verify the token and decode it
+    const decoded = verify(token, config.jwtSecret as string) as DecodedUser & JwtPayload;
 
-    // Ensure decoded token has all required fields
+    // Validate the decoded payload fields
     if (!decoded.sub || !decoded.role || !decoded.email) {
       return next(createHttpError(401, "Invalid token payload."));
     }
 
-    // Add the decoded user data to the request object (req.query)
-    req.query= {
-      sub: decoded.sub,   // User ID (sub)
-      role: decoded.role, // User role
-      email: decoded.email, // User email
+    // Attach user data to req.user
+    req.user = {
+      sub: decoded.sub,
+      role: decoded.role,
+      email: decoded.email,
     };
 
-    // Continue to the next middleware or route handler
-    next();
-  } catch (err) {
-    return next(createHttpError(401, `${err}: Invalid or expired token.`));
+    next(); // Proceed to the next middleware or route handler
+  } catch (error) {
+    console.error("JWT Verification Error:", error);
+    return next(createHttpError(401, "Invalid or expired token."));
   }
 };
 

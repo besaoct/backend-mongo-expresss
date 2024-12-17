@@ -29,3 +29,27 @@ export const sendVerificationEmail = async (to: string, token: string) => {
   }
 };
 
+
+export const sendResetPasswordEmail = async (email: string, token: string) => {
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+  const transporter = nodemailer.createTransport({
+    service: "Gmail", 
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Password Reset Request",
+    html: `
+      <p>You requested to reset your password. Click the link below to set a new password:</p>
+      <a href="${resetLink}" target="_blank">Reset Password</a>
+      <p>This link is valid for 1 hour.</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};

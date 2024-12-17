@@ -11,7 +11,11 @@ export interface User {
     name: string;
     email: string;
     role: UserRole;
+
+    // password
     password: string;
+    passwordResetToken?: string,
+    passwordResetExpires?: Date,
 
     // optional user data
     avatar?: string;

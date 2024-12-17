@@ -14,7 +14,11 @@ const userSchema = new Schema<User>(
       default: UserRole.USER,
       required:true
     },
+
+  // password
     password: { type: String, required: true },
+    passwordResetToken: { type: String, default: undefined},
+    passwordResetExpires: { type: Date, default: undefined},
 
   //  optional user data
     avatar: { type: String , default: undefined},

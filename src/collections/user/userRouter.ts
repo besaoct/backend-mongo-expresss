@@ -3,10 +3,14 @@ import {
   createUser,
   getLoggedInUserInfo,
   loginUser,
+  requestPasswordReset,
+  resetPassword,
   updateUser,
   uploadAvatar,
   validateCreateUser,
   validateLoginUser,
+  validatePasswordResetRequest,
+  validateResetPassword,
   validateUpdateUser,
   verifyEmail,
 } from "./userController";
@@ -20,8 +24,10 @@ const userRouter = express.Router();
 userRouter.post("/register", validateCreateUser, createUser);
 userRouter.get("/verify-email", verifyEmail);
 userRouter.post("/login", validateLoginUser, loginUser);
+userRouter.post("/request-password-reset", validatePasswordResetRequest, requestPasswordReset);
+userRouter.post("/reset-password", validateResetPassword, resetPassword);
 
-// with jwt middleware
+// with jwt auth middleware
 userRouter.get("/user-info", jwtMiddleware, getLoggedInUserInfo); 
 userRouter.put('/update-user', jwtMiddleware, validateUpdateUser, updateUser);
 userRouter.post("/avatar", jwtMiddleware, imageUpload.single("avatar"), uploadAvatar);

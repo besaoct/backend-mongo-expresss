@@ -6,7 +6,7 @@ import { sign, verify } from "jsonwebtoken";
 import { config } from "../../config";
 import { User, UserRole } from "./userTypes";
 import { body, validationResult } from "express-validator";
-import { sendVerificationEmail } from "../../services/mail";
+import { sendResetPasswordEmail, sendVerificationEmail } from "../../services/mail";
 import DeviceDetector from "device-detector-js";
 import { cloudinary } from "../../config";
 
@@ -17,7 +17,6 @@ import { cloudinary } from "../../config";
 | Middleware for input validation using express-validator. 
 | Ensures that the incoming data for user creation and login is valid and secure.
 */
-
 // Validation middleware for user registration
 const validateCreateUser = [
   body("name").trim().notEmpty().withMessage("Name is required"),
@@ -33,13 +32,11 @@ const validateCreateUser = [
     .matches(/[!@#$%^&*(),.?":{}|<>]/)
     .withMessage("Password must contain at least one special character"),
 ];
-
 // Validation middleware for user login
 const validateLoginUser = [
   body("email").isEmail().withMessage("A valid email is required"),
   body("password").notEmpty().withMessage("Password is required"),
 ];
-
 // Validation middleware for user update
 const validateUpdateUser = [
   body("name").optional().trim().notEmpty().withMessage("Name cannot be empty."),
@@ -51,6 +48,22 @@ const validateUpdateUser = [
     .withMessage("Phone number must be a valid international format."),
   body("password")
     .optional()
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters long.")
+    .matches(/\d/)
+    .withMessage("Password must contain at least one number.")
+    .matches(/[!@#$%^&*(),.?":{}|<>]/)
+    .withMessage("Password must contain at least one special character."),
+];
+// Validation middleware for requesting a password reset
+const validatePasswordResetRequest = [
+  body("email").isEmail().withMessage("A valid email is required").normalizeEmail(),
+];
+
+// Validation middleware for resetting the password
+const validateResetPassword = [
+  body("token").notEmpty().withMessage("Reset token is required."),
+  body("password")
     .isLength({ min: 8 })
     .withMessage("Password must be at least 8 characters long.")
     .matches(/\d/)
@@ -71,7 +84,6 @@ const validateUpdateUser = [
 | 4. Generates a verification token for email confirmation.
 | 5. Sends the verification email.
 */
-
 const createUser = async (req: Request, res: Response, next: NextFunction) => {
   // Input validation
   const errors = validationResult(req);
@@ -132,7 +144,6 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
 | 2. Verifies the user by email.
 | 3. Updates the user’s `isVerified` status.
 */
-
 const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
   const { token } = req.query;
 
@@ -176,7 +187,6 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
 | 3. Verifies the provided password.
 | 4. Generates and returns an access token (JWT).
 */
-
 const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   const deviceDetector = new DeviceDetector();
   const userAgent = req.headers["user-agent"] || ""; // Extract User-Agent header
@@ -283,7 +293,6 @@ if (existingDeviceIndex !== -1) {
 | 1. Extracts the user ID from the JWT token.
 | 2. Fetches and returns user data excluding sensitive information.
 */
-
 const getLoggedInUserInfo = async (
   req: Request,
   res: Response,
@@ -348,7 +357,7 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
     return next(createHttpError(400, { message: "Validation failed", errors: errors.array() }));
   }
 
-  const userId = req.query?.sub; // Decoded JWT user ID added by jwtMiddleware
+  const userId = req.user?.sub; // Decoded JWT user ID added by jwtMiddleware
   const { name, bio, avatar, phone, password } = req.body;
 
   try {
@@ -387,16 +396,21 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
 };
 
 
-// Upload User Avatar to Cloudinary
+/*
+|--------------------------------------------------------------------------
+| Upload User Avatar
+|--------------------------------------------------------------------------
+| Upload to cloudinary and update user avatar.
+*/
 const uploadAvatar = async (req: Request, res: Response, next: NextFunction) => {
   try {
    
-    if (!req.query) throw createHttpError(401, "Unauthorized: No user found in request.");
+    if (!req.user) throw createHttpError(401, "Unauthorized: No user found in request.");
     if (!req.file) throw createHttpError(400, "No file uploaded.");
 
 
     // Get user ID from the JWT middleware
-    const userId = req.query.sub;
+    const userId = req.user.sub;
 
      // Upload the file to Cloudinary
      const result = await cloudinary.uploader.upload(req.file.path, {
@@ -428,14 +442,116 @@ const uploadAvatar = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
+
+/* 
+|--------------------------------------------------------------------------
+| Request Password Reset Controller
+|--------------------------------------------------------------------------
+| Handles the generation and sending of password reset tokens:
+| 1. Checks if the user exists by email.
+| 2. Generates a one-time-use password reset token.
+| 3. Sends the token to the user via email.
+*/
+const requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(createHttpError(400, { message: "Validation failed", errors: errors.array() }));
+  }
+
+  const { email } = req.body;
+
+  try {
+    // Check if user exists with the given email
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return next(createHttpError(404, "No user found with this email."));
+    }
+
+    // Generate a password reset token valid for 1 hour
+    const resetToken = sign({ userId: user._id }, config.jwtSecret as string, {
+      expiresIn: "1h",
+    });
+
+    // Attach reset token and expiry to the user document
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = new Date(Date.now() + 3600000); // 1 hour expiry
+    await user.save();
+
+    // Send password reset email
+    await sendResetPasswordEmail(user.email, resetToken);
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset link has been sent to your email. It will be expired in 1 hour.",
+    });
+  } catch (err) {
+    return next(createHttpError(500, `Error processing password reset: ${err}`));
+  }
+};
+
+/* 
+|--------------------------------------------------------------------------
+| Reset Password Controller
+|--------------------------------------------------------------------------
+| Handles password reset:
+| 1. Validates the reset token.
+| 2. Hashes the new password securely.
+| 3. Updates the user password in the database.
+| 4. Invalidates the reset token after successful use.
+*/
+const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(createHttpError(400, { message: "Validation failed", errors: errors.array() }));
+  }
+
+  const { token, password } = req.body;
+
+  try {
+    // Verify and decode the reset token
+    const decoded = verify(token, config.jwtSecret as string) as { userId: string };
+
+    // Find user by ID and validate reset token
+    const user = await userModel.findById(decoded.userId);
+    if (!user || (user.passwordResetToken !== token) || (user.passwordResetExpires && (new Date() > new Date(user.passwordResetExpires)))) {
+      return next(createHttpError(400, "Invalid or expired reset token."));
+    }
+
+    // Hash the new password securely
+    const hashedPassword = await bcrypt.hash(password, 12);
+    user.password = hashedPassword;
+
+    // Invalidate the reset token
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+
+    // Save the updated user document
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password has been reset successfully. You can now log in.",
+    });
+  } catch (err) {
+    return next(createHttpError(500, `Error resetting password: ${err}`));
+  }
+};
+
 export {
+  // functions
   createUser,
   verifyEmail,
   loginUser,
   getLoggedInUserInfo,
   updateUser,
   uploadAvatar,
+  requestPasswordReset,
+  resetPassword,
+  // validations
   validateCreateUser,
   validateLoginUser,
-  validateUpdateUser
+  validateUpdateUser,
+  validatePasswordResetRequest,
+  validateResetPassword
 };
