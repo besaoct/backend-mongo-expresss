@@ -3,14 +3,19 @@ import cors from "cors";
 import globalErrorHandler from './middlewares/globalErrorHandlingMiddleware';
 import userRouter from './collections/user/userRouter';
 import { config } from './config';
+import cookieParser from 'cookie-parser';
 
 const app = express();
+
+// Apply cookie parser middleware globally
+app.use(cookieParser());
 
 app.set("trust proxy", true);
 
 app.use(
     cors({
         origin: config.frontendDomain,
+        credentials: true,  // Allow credentials (cookies)
     })
 );
 

@@ -23,41 +23,45 @@ declare global {
 
 // JWT Verification Middleware
 const jwtMiddleware = async (req: Request, _res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return next(createHttpError(401, "Authentication token is missing or invalid."));
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  try {
-    // Verify the token and decode it
-    const decoded = verify(token, config.jwtSecret as string) as DecodedUser & JwtPayload;
-
-    // verify device token
-    const user = await userModel.findById(decoded.sub);
-    if (!user || !user.loggedInDevices.some((device) => device.token === token)) {
+    const authHeader = req.headers.authorization;
+  
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return next(createHttpError(401, "Authentication token is missing or invalid."));
+    }
+  
+    const token = authHeader.split(" ")[1];
+  
+    try {
+      const decoded = verify(token, config.jwtSecret as string) as DecodedUser & JwtPayload;
+  
+      if (!decoded.sub || !decoded.role || !decoded.deviceId || !decoded.sessionId) {
+        return next(createHttpError(401, "Invalid token payload."));
+      }
+  
+      const user = await userModel.findById(decoded.sub);
+      if (!user) {
+        return next(createHttpError(401, "User not found."));
+      }
+  
+      const matchingDevice = user.loggedInDevices.find(
+        (device) => (device.deviceId === decoded.deviceId) && (device.sessionId === decoded.sessionId)
+      );
+  
+      if (!matchingDevice) {
+        return next(createHttpError(401, "Invalid session or device."));
+      }
+  
+      req.user = {
+        sub: decoded.sub,
+        role: decoded.role,
+        email: decoded.email,
+      };
+  
+      next();
+    } catch (error) {
+      console.error("JWT Verification Error:", error);
       return next(createHttpError(401, "Invalid or expired token."));
     }
-
-    // Validate the decoded payload fields
-    if (!decoded.sub || !decoded.role || !decoded.email) {
-      return next(createHttpError(401, "Invalid token payload."));
-    }
-
-    // Attach user data to req.user
-    req.user = {
-      sub: decoded.sub,
-      role: decoded.role,
-      email: decoded.email,
-    };
-
-    next(); // Proceed to the next middleware or route handler
-  } catch (error) {
-    console.error("JWT Verification Error:", error);
-    return next(createHttpError(401, "Invalid or expired token."));
-  }
-};
-
+  };
+  
 export { jwtMiddleware };

@@ -2,108 +2,21 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import bcrypt from "bcrypt";
 import userModel from "./userModel";
-import { sign } from "jsonwebtoken";
+import {  JwtPayload, sign, verify, } from "jsonwebtoken";
 import { config } from "../../config";
 import { User, UserRole } from "./userTypes";
-import { body, validationResult } from "express-validator";
+import { validationResult } from "express-validator";
 import { sendOTPResetEmail, sendVerificationEmail } from "../../services/mail";
 import DeviceDetector from "device-detector-js";
-import { cloudinary } from "../../config";
 import { createHash } from "crypto";
+import { v4 as uuidv4 } from "uuid"; // UUID for sessionId generation
 
 /* 
 |--------------------------------------------------------------------------
-| Utility Function: Generate 6-Digit OTP
+| Utility Function: Generate 6-Digit OTP, Access Token, Refresh token
 |--------------------------------------------------------------------------
 */
-const generateOTP = (): string =>
-  Math.floor(100000 + Math.random() * 900000).toString();
-
-/* 
-|--------------------------------------------------------------------------
-| Input Validation Middleware 
-|--------------------------------------------------------------------------
-| Middleware for input validation using express-validator. 
-| Ensures that the incoming data for user creation and login is valid and secure.
-*/
-
-const validateCreateUser = [
-  body("name").trim().notEmpty().withMessage("Name is required"),
-  body("email")
-    .isEmail()
-    .withMessage("A valid email is required")
-    .normalizeEmail(),
-  body("password")
-    .isLength({ min: 8 })
-    .withMessage("Password must be at least 8 characters long")
-    .matches(/\d/)
-    .withMessage("Password must contain at least one number")
-    .matches(/[!@#$%^&*(),.?":{}|<>]/)
-    .withMessage("Password must contain at least one special character"),
-];
-
-const validateLoginUser = [
-  body("email").isEmail().withMessage("A valid email is required"),
-  body("password").notEmpty().withMessage("Password is required"),
-];
-
-const validateUpdateUser = [
-  body("name")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Name cannot be empty."),
-  body("bio")
-    .optional()
-    .trim()
-    .isLength({ max: 300 })
-    .withMessage("Bio must be under 300 characters."),
-  body("avatar").optional().isURL().withMessage("Image must be a valid URL."),
-  body("phone")
-    .optional()
-    .matches(/^\+?[1-9]\d{1,14}$/)
-    .withMessage("Phone number must be a valid international format."),
-  body("password")
-    .optional()
-    .isLength({ min: 8 })
-    .withMessage("Password must be at least 8 characters long.")
-    .matches(/\d/)
-    .withMessage("Password must contain at least one number.")
-    .matches(/[!@#$%^&*(),.?":{}|<>]/)
-    .withMessage("Password must contain at least one special character."),
-];
-
-const validateVerifyEmail = [
-  body("email").isEmail().withMessage("A valid email is required"),
-  body("otp")
-    .isLength({ min: 6, max: 6 })
-    .withMessage("OTP must be exactly 6 digits"),
-];
-
-const validateRequestPasswordReset = [
-  body("email")
-    .isEmail()
-    .withMessage("A valid email is required")
-    .normalizeEmail(),
-];
-
-const validateVerifyOTP = [
-  body("email").isEmail().withMessage("A valid email is required"),
-  body("otp")
-    .isLength({ min: 6, max: 6 })
-    .withMessage("OTP must be exactly 6 digits"),
-];
-
-const validateResetPassword = [
-  body("email").isEmail().withMessage("A valid email is required"),
-  body("password")
-    .isLength({ min: 8 })
-    .withMessage("Password must be at least 8 characters long.")
-    .matches(/\d/)
-    .withMessage("Password must contain at least one number.")
-    .matches(/[!@#$%^&*(),.?":{}|<>]/)
-    .withMessage("Password must contain at least one special character."),
-];
+const generateOTP = (): string => Math.floor(100000 + Math.random() * 900000).toString();
 
 /* 
 |--------------------------------------------------------------------------
@@ -320,26 +233,51 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
       (device) => (device.deviceId === uniqueDeviceId),
     );
 
-    // Generate new token
-    const newToken = sign(
-      { sub: user._id, role: user.role, email: user.email },
-      config.jwtSecret as string,
-      { expiresIn: "7d", algorithm: "HS256" },
-    );
+
+// Generate sessionId
+const sessionId = uuidv4();
+
+// Generate JWTs
+const accessToken = sign(
+  {
+    sub: user._id,
+    role: user.role,
+    email: user.email,
+    deviceId: uniqueDeviceId,
+    sessionId,
+  },
+  config.jwtSecret as string,
+  { expiresIn: "15m", algorithm: "HS256" }
+);
+
+const refreshToken = sign(
+  {
+    sub: user._id,
+    role: user.role,
+    email: user.email,
+    deviceId: uniqueDeviceId,
+    sessionId,
+  },
+  config.jwtSecret as string,
+  { expiresIn: "7d", algorithm: "HS256" }
+);
+
 
     if (existingDeviceIndex !== -1) {
-      // If device already exists, update its login timestamp (keep the latest login)
-      user.loggedInDevices[existingDeviceIndex].token = newToken;
+      user.loggedInDevices[existingDeviceIndex].sessionId= sessionId  ; 
       user.loggedInDevices[existingDeviceIndex].loginAt = new Date();
+
     } else {
+
       // If device is new, add it to the list
       user.loggedInDevices.push({
         deviceId: uniqueDeviceId,
         deviceName: deviceName,
-        token: newToken,
+        sessionId: sessionId ,
         loginAt: new Date(),
       });
     }
+
 
     // Limit the number of devices (keep only the last 5)
     if (user.loggedInDevices.length > 5) {
@@ -349,12 +287,21 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
     // Save the updated user details
     await user.save();
 
+
+     // Set the refresh token in a secure HTTP-only cookie
+      res.cookie('refreshToken', refreshToken, {
+            httpOnly: true, // Ensures the cookie can't be accessed via JavaScript
+            secure: config.env === 'production', // Ensures it is sent over HTTPS only in production
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+
     // Respond with the access token
     res.status(200).json({
       success: true,
       newUser: isFirstLogin,
       message: isFirstLogin ? `Hey ${user.name}! Welcome` : "Login successful.",
-      accessToken: newToken,
+      accessToken: accessToken,
       data: {
         name: user.name,
         email: user.email,
@@ -364,6 +311,7 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
         loggedInDevices: user.loggedInDevices.map((device) => ({
           deviceId: device.deviceId ,
           deviceName: device.deviceName,
+          sessionId: device.sessionId,
           loginAt: device.loginAt,
         })),
       },
@@ -435,7 +383,7 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
   if (!req.user)
     throw createHttpError(401, "Unauthorized: No user found in request.");
   const userId = req.user.sub; // Decoded JWT user ID added by jwtMiddleware
-  const { name, bio, avatar, phone, password } = req.body;
+  const { name, bio, avatarUrl, phone, password } = req.body;
 
   try {
     // Fetch user by ID (excluding sensitive fields)
@@ -448,7 +396,7 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
     // Update only provided fields
     if (name) user.name = name;
     if (bio) user.bio = bio;
-    if (avatar) user.avatar = avatar;
+    if (avatarUrl) user.avatarUrl = avatarUrl;
     if (phone) user.phone = phone;
 
     // Handle password update securely
@@ -477,29 +425,25 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
 |--------------------------------------------------------------------------
 | Upload to cloudinary and update user avatar.
 */
-const uploadAvatar = async (
+const updateAvatar = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
-    if (!req.user)
+    if (!req.user) {
       throw createHttpError(401, "Unauthorized: No user found in request.");
-    if (!req.file) throw createHttpError(400, "No file uploaded.");
+    }
+    if (!req.file) {
+      throw createHttpError(400, "No file uploaded.");
+    }
 
     // Get user ID from the JWT middleware
     const userId = req.user.sub;
 
-    // Upload the file to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: "avatars", // Cloudinary folder name
-      public_id: `avatar_${userId}`, // Unique name for the avatar
-      overwrite: true, // Replace the existing avatar
-    });
-
     // Update the user document with the new avatar URL
     const updatedUser = await userModel
-      .findByIdAndUpdate(userId, { image: result.secure_url }, { new: true })
+      .findByIdAndUpdate(userId, { avatarUrl: req.file.path }, { new: true })
       .select("-password -__v");
 
     if (!updatedUser) {
@@ -510,12 +454,16 @@ const uploadAvatar = async (
     res.status(200).json({
       success: true,
       message: "Avatar uploaded successfully.",
-      data: updatedUser,
+      data: {
+        ...updatedUser.toObject(),
+        avatarUrl: req.file.path // Ensure avatar URL is in the response
+      },
     });
   } catch (err) {
     return next(createHttpError(500, `Error uploading avatar: ${err}`));
   }
 };
+
 
 /* 
 |--------------------------------------------------------------------------
@@ -686,23 +634,109 @@ const resetPassword = async (
   }
 };
 
+
+/*
+|--------------------------------------------------------------------------
+| Refresh Token Endpoint
+|--------------------------------------------------------------------------
+| Handles refreshing the access token using a valid refresh token:
+| 1. Validates and verifies the refresh token from the cookies.
+| 2. Checks if the refresh token matches one of the user's logged-in devices.
+| 3. Generates a new access token (JWT) and optionally a new refresh token.
+| 4. Sets the new refresh token in the cookies and sends the new access token.
+*/
+const refreshToken= async (req: Request, res: Response, next: NextFunction) => {
+  const { refreshToken } = req.cookies; // Extract refresh token from cookies
+
+  if (!refreshToken) {
+    return next(createHttpError(401, "Refresh token is missing or invalid."));
+  }
+
+  try {
+    // Verify the refresh token
+    const decoded = verify(refreshToken, config.jwtSecret as string) as JwtPayload & {
+      sub: string;
+      deviceId: string;
+      sessionId: string;
+    };
+
+    // Validate token structure
+    if (!decoded.sub || !decoded.deviceId || !decoded.sessionId) {
+      return next(createHttpError(401, "Invalid refresh token payload."));
+    }
+
+    // Find the user by ID
+    const user = await userModel.findById(decoded.sub);
+    if (!user) {
+      return next(createHttpError(404, "User not found."));
+    }
+
+    // Check if the device and session match
+    const matchingDevice = user.loggedInDevices.find(
+      (device) =>
+        device.deviceId === decoded.deviceId && device.sessionId === decoded.sessionId
+    );
+
+    if (!matchingDevice) {
+      return next(createHttpError(401, "Session is invalid or expired."));
+    }
+
+    // Generate new tokens
+    const newSessionId = matchingDevice.sessionId; // Keep the existing sessionId
+
+    const newAccessToken = sign(
+      {
+        sub: user._id,
+        role: user.role,
+        email: user.email,
+        deviceId: decoded.deviceId,
+        sessionId: newSessionId,
+      },
+      config.jwtSecret as string,
+      { expiresIn: "15m", algorithm: "HS256" }
+    );
+
+    const newRefreshToken = sign(
+      {
+        sub: user._id,
+        role: user.role,
+        email: user.email,
+        deviceId: decoded.deviceId,
+        sessionId: newSessionId,
+      },
+      config.jwtSecret as string,
+      { expiresIn: "7d", algorithm: "HS256" }
+    );
+
+    // Set the new refresh token in cookies
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: config.env === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Respond with the new access token
+    res.status(200).json({
+      success: true,
+      message: "Token refreshed successfully.",
+      accessToken: newAccessToken,
+    });
+  } catch (err) {
+    console.error("Refresh token error:", err);
+    return next(createHttpError(401, "Invalid or expired refresh token."));
+  }
+};
+
+
 export {
-  // functions
   createUser,
   verifyEmail,
   loginUser,
   getLoggedInUserInfo,
   updateUser,
-  uploadAvatar,
+  updateAvatar,
   requestPasswordReset,
   verifyPasswordResetOTP,
   resetPassword,
-  // validations
-  validateCreateUser,
-  validateVerifyEmail,
-  validateLoginUser,
-  validateUpdateUser,
-  validateRequestPasswordReset,
-  validateVerifyOTP,
-  validateResetPassword,
+  refreshToken
 };

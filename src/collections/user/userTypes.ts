@@ -23,7 +23,7 @@ export interface User {
     passwordResetExpires?: Date,
 
     // optional user data
-    avatar?: string;
+    avatarUrl?: string;
     bio?:string;
     phone?:string;
 
@@ -33,7 +33,7 @@ export interface User {
     loggedInDevices: {
       deviceId:string
       deviceName: string;
-      token: string;
+      sessionId: string;
       loginAt: Date;
     }[];
 

@@ -1,5 +1,24 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+
+
+
+const ensureUploadDirectoriesExist = () => {
+    const uploadPaths = [
+      path.join(__dirname, "../uploads/images"),
+      path.join(__dirname, "../uploads/documents"),
+      path.join(__dirname, "../uploads/json"),
+    ];
+  
+    uploadPaths.forEach((dir) => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true }); // Ensure parent directories are created
+      }
+    });
+  };
+  
+ensureUploadDirectoriesExist(); // Call this function when the app starts
 
 // Factory function to configure Multer for specific file types
 const fileUpload = ({

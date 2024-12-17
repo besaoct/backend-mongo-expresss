@@ -26,7 +26,7 @@ const userSchema = new Schema<User>(
     passwordResetVerified: { type: Boolean, default: undefined},
 
   //  optional user data
-    avatar: { type: String , default: undefined},
+    avatarUrl: { type: String , default: undefined},
     bio: { type: String, default: undefined},
     phone: { type: String , default: undefined},
 
@@ -39,7 +39,7 @@ const userSchema = new Schema<User>(
         {
           deviceId: { type: String, required: true , default: "Unknown"},
           deviceName: { type: String, required: true, default: "Unknown" },
-          token: { type: String, required: true },
+          sessionId: { type: String, required:true},
           loginAt: { type: Date, default: Date.now },
         },
       ],

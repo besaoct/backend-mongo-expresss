@@ -3,10 +3,19 @@ import {
   createUser,
   getLoggedInUserInfo,
   loginUser,
+  refreshToken,
+  // refreshToken,
   requestPasswordReset,
   resetPassword,
+  updateAvatar,
   updateUser,
-  uploadAvatar,
+  verifyEmail,
+  verifyPasswordResetOTP,
+} from "./userController";
+
+import { jwtMiddleware } from "../../middlewares/jwtAuthMiddleware";
+
+import { 
   validateCreateUser,
   validateLoginUser,
   validateRequestPasswordReset,
@@ -14,12 +23,8 @@ import {
   validateUpdateUser,
   validateVerifyEmail,
   validateVerifyOTP,
-  verifyEmail,
-  verifyPasswordResetOTP,
-} from "./userController";
-
-import { jwtMiddleware } from "../../middlewares/jwtAuthMiddleware";
-import { imageUpload } from "../../middlewares/uploadMiddlewares";
+} from "./userValidationMiddleware";
+import cloudinaryUpload from "../../middlewares/cloudinaryUploadMiddleware";
 
 const userRouter = express.Router();
 
@@ -27,6 +32,7 @@ const userRouter = express.Router();
 userRouter.post("/register", validateCreateUser, createUser);
 userRouter.post("/verify-email", validateVerifyEmail, verifyEmail);
 userRouter.post("/login", validateLoginUser, loginUser);
+userRouter.post("/refresh-token", refreshToken);
 
 // reset password routes
 userRouter.post("/request-password-reset", validateRequestPasswordReset, requestPasswordReset);
@@ -36,6 +42,12 @@ userRouter.post("/reset-password", validateResetPassword, resetPassword);
 // with jwt auth middleware
 userRouter.get("/user-info", jwtMiddleware, getLoggedInUserInfo); 
 userRouter.put('/update-user', jwtMiddleware, validateUpdateUser, updateUser);
-userRouter.post("/avatar", jwtMiddleware, imageUpload.single("avatar"), uploadAvatar);
+userRouter.post(
+  "/upload-avatar",
+  jwtMiddleware,
+  cloudinaryUpload.Image({fieldName:"avatar", folder: "avatars", overwrite: true}), // Save avatars under `avatars/{userId}`
+  updateAvatar
+);
+
 
 export default userRouter;
