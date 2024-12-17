@@ -1,30 +1,41 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { Request } from "express";
 
-
-
+// Ensure upload directories exist
 const ensureUploadDirectoriesExist = () => {
-    const uploadPaths = [
-      path.join(__dirname, "../uploads/images"),
-      path.join(__dirname, "../uploads/documents"),
-      path.join(__dirname, "../uploads/json"),
-    ];
-  
-    uploadPaths.forEach((dir) => {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true }); // Ensure parent directories are created
-      }
-    });
-  };
-  
-ensureUploadDirectoriesExist(); // Call this function when the app starts
+  const uploadPaths = [
+    path.join(__dirname, "../uploads/images"),
+    path.join(__dirname, "../uploads/documents"),
+    path.join(__dirname, "../uploads/json"),
+    path.join(__dirname, "../uploads/videos"),
+    path.join(__dirname, "../uploads/audio"),
+    path.join(__dirname, "../uploads/archives"),
+    path.join(__dirname, "../uploads/misc"),
+  ];
+
+
+  uploadPaths.forEach((dir) => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true }); // Ensure parent directories are created
+    }
+  });
+};
 
 // Factory function to configure Multer for specific file types
 const fileUpload = ({
-  uploadFolder = "uploads",      // Folder to temporarily store files
-  allowedMimeTypes = ["image/"], // Array of allowed MIME types
-  maxFileSizeMB = 5,             // File size limit in MB
+  uploadFolder = "uploads/misc", // Folder to temporarily store files
+  allowedMimeTypes = [
+    "image/", // Image files
+    "video/", // Video files
+    "audio/", // Audio files
+    "application/pdf", // PDFs
+    "application/json", // JSON files
+    "application/zip", "application/x-tar", "application/gzip", // Archives
+    "application/octet-stream", // Accept Blob data (binary data)
+  ], // Array of allowed MIME types
+  maxFileSizeMB = 100, // File size limit in MB
 }) => {
   // Set up storage (temporarily stores files on disk)
   const storage = multer.diskStorage({
@@ -39,8 +50,7 @@ const fileUpload = ({
   });
 
   // File filter for allowed MIME types
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     const isAllowed = allowedMimeTypes.some((type) => file.mimetype.startsWith(type));
     if (isAllowed) {
       cb(null, true);
@@ -57,7 +67,6 @@ const fileUpload = ({
   });
 };
 
-
 // Upload configuration for images
 const imageUpload = fileUpload({
   uploadFolder: "uploads/images",
@@ -72,11 +81,47 @@ const pdfUpload = fileUpload({
   maxFileSizeMB: 10,
 });
 
-// Upload configuration for PDFs
+// Upload configuration for JSON
 const jsonUpload = fileUpload({
-    uploadFolder: "uploads/json",
-    allowedMimeTypes: ["application/json"], // Only json files
-    maxFileSizeMB: 10,
-  });
+  uploadFolder: "uploads/json",
+  allowedMimeTypes: ["application/json"], // Only JSON files
+  maxFileSizeMB: 10,
+});
 
-export { imageUpload, pdfUpload, jsonUpload };
+// Upload configuration for videos
+const videoUpload = fileUpload({
+  uploadFolder: "uploads/videos",
+  allowedMimeTypes: ["video/"], // Only video files (e.g., video/mp4, video/mkv)
+  maxFileSizeMB: 50,
+});
+
+// Upload configuration for audio
+const audioUpload = fileUpload({
+  uploadFolder: "uploads/audio",
+  allowedMimeTypes: ["audio/"], // Only audio files (e.g., audio/mp3, audio/wav)
+  maxFileSizeMB: 20,
+});
+
+// Upload configuration for archives
+const archiveUpload = fileUpload({
+  uploadFolder: "uploads/archives",
+  allowedMimeTypes: ["application/zip", "application/x-tar", "application/gzip"], // Only archive files
+  maxFileSizeMB: 100,
+});
+
+// misc Upload configuration to accept all file types
+const miscUpload = fileUpload({
+  uploadFolder: "uploads/misc", // All types go into the misc folder
+  allowedMimeTypes: [
+    "image/", // Image files
+    "video/", // Video files
+    "audio/", // Audio files
+    "application/pdf", // PDFs
+    "application/json", // JSON files
+    "application/zip", "application/x-tar", "application/gzip", // Archives
+    "application/octet-stream", // Accept Blob data (binary data)
+  ], 
+  maxFileSizeMB: 100, // Max file size for any upload type (you can adjust this as needed)
+});
+
+export { ensureUploadDirectoriesExist, imageUpload, pdfUpload, jsonUpload, videoUpload, audioUpload, archiveUpload, miscUpload};
