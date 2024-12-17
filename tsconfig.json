@@ -12,6 +12,5 @@
     "allowSyntheticDefaultImports": true,    // Simplify default imports
     "resolveJsonModule": true          // Enable importing .json files
   },
-  "include": ["server.ts", "src"],     // Include server.ts and the src folder
   "exclude": ["node_modules"]          // Exclude node_modules from compilation
 }
