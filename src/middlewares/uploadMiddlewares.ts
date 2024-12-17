@@ -5,14 +5,15 @@ import { Request } from "express";
 
 // Ensure upload directories exist
 const ensureUploadDirectoriesExist = () => {
+
   const uploadPaths = [
-    path.join(__dirname, "../uploads/images"),
-    path.join(__dirname, "../uploads/documents"),
-    path.join(__dirname, "../uploads/json"),
-    path.join(__dirname, "../uploads/videos"),
-    path.join(__dirname, "../uploads/audio"),
-    path.join(__dirname, "../uploads/archives"),
-    path.join(__dirname, "../uploads/misc"),
+    path.join(__dirname, "../../public/uploads/images"),
+    path.join(__dirname, "../../public/uploads/docs"),
+    path.join(__dirname, "../../public/uploads/json"),
+    path.join(__dirname, "../../public/uploads/videos"),
+    path.join(__dirname, "../../public/uploads/audio"),
+    path.join(__dirname, "../../public/uploads/archives"),
+    path.join(__dirname, "../../public/uploads/misc"),
   ];
 
 
@@ -21,11 +22,13 @@ const ensureUploadDirectoriesExist = () => {
       fs.mkdirSync(dir, { recursive: true }); // Ensure parent directories are created
     }
   });
+
+  
 };
 
 // Factory function to configure Multer for specific file types
 const fileUpload = ({
-  uploadFolder = "uploads/misc", // Folder to temporarily store files
+  uploadFolder = "public/uploads/misc", // Folder to temporarily store files
   allowedMimeTypes = [
     "image/", // Image files
     "video/", // Video files
@@ -69,49 +72,49 @@ const fileUpload = ({
 
 // Upload configuration for images
 const imageUpload = fileUpload({
-  uploadFolder: "uploads/images",
+  uploadFolder: "public/uploads/images",
   allowedMimeTypes: ["image/"], // Only images (e.g., image/png, image/jpeg)
   maxFileSizeMB: 5,
 });
 
 // Upload configuration for PDFs
 const pdfUpload = fileUpload({
-  uploadFolder: "uploads/documents",
+  uploadFolder: "public/uploads/docs",
   allowedMimeTypes: ["application/pdf"], // Only PDF files
   maxFileSizeMB: 10,
 });
 
 // Upload configuration for JSON
 const jsonUpload = fileUpload({
-  uploadFolder: "uploads/json",
+  uploadFolder: "public/public/uploads/json",
   allowedMimeTypes: ["application/json"], // Only JSON files
   maxFileSizeMB: 10,
 });
 
 // Upload configuration for videos
 const videoUpload = fileUpload({
-  uploadFolder: "uploads/videos",
+  uploadFolder: "public/uploads/videos",
   allowedMimeTypes: ["video/"], // Only video files (e.g., video/mp4, video/mkv)
   maxFileSizeMB: 50,
 });
 
 // Upload configuration for audio
 const audioUpload = fileUpload({
-  uploadFolder: "uploads/audio",
+  uploadFolder: "public/uploads/audio",
   allowedMimeTypes: ["audio/"], // Only audio files (e.g., audio/mp3, audio/wav)
   maxFileSizeMB: 20,
 });
 
 // Upload configuration for archives
 const archiveUpload = fileUpload({
-  uploadFolder: "uploads/archives",
+  uploadFolder: "public/uploads/archives",
   allowedMimeTypes: ["application/zip", "application/x-tar", "application/gzip"], // Only archive files
   maxFileSizeMB: 100,
 });
 
 // misc Upload configuration to accept all file types
 const miscUpload = fileUpload({
-  uploadFolder: "uploads/misc", // All types go into the misc folder
+  uploadFolder: "public/uploads/misc", // All types go into the misc folder
   allowedMimeTypes: [
     "image/", // Image files
     "video/", // Video files
