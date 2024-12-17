@@ -3,7 +3,6 @@ import { HttpError } from 'http-errors';
 import { config } from '../config';
 
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const globalErrorHandler = (err: HttpError, _req: Request, res: Response, _next: NextFunction) => {
     const statusCode = err.status || 500;
 

@@ -1,12 +1,17 @@
 {
   "compilerOptions": {
     "moduleDetection": "auto",
-    "outDir": "./dist", 
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "allowSyntheticDefaultImports": true
+    "target": "ESNext",                // Use modern JavaScript features
+    "module": "CommonJS",              // Use Node.js module system
+    "moduleResolution": "node",        // Resolve modules like Node.js
+    "outDir": "./dist",                // Output compiled files to dist
+    "esModuleInterop": true,           // Enable ESModule and CommonJS compatibility
+    "strict": true,                    // Enable strict type-checking
+    "skipLibCheck": true,              // Skip type-checking for node_modules
+    "forceConsistentCasingInFileNames": true, // Enforce consistent casing for imports
+    "allowSyntheticDefaultImports": true,    // Simplify default imports
+    "resolveJsonModule": true          // Enable importing .json files
   },
-  "exclude": ["node_modules"]
+  "include": ["server.ts", "src"],     // Include server.ts and the src folder
+  "exclude": ["node_modules"]          // Exclude node_modules from compilation
 }
