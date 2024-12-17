@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { verify, JwtPayload } from "jsonwebtoken";
 import { config } from "../config"; // Adjust the path to your config file
+import userModel from "../collections/user/userModel";
 
 // Custom interface for JWT payload
 interface DecodedUser {
@@ -21,7 +22,7 @@ declare global {
 }
 
 // JWT Verification Middleware
-const jwtMiddleware = (req: Request, _res: Response, next: NextFunction) => {
+const jwtMiddleware = async (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -33,6 +34,12 @@ const jwtMiddleware = (req: Request, _res: Response, next: NextFunction) => {
   try {
     // Verify the token and decode it
     const decoded = verify(token, config.jwtSecret as string) as DecodedUser & JwtPayload;
+
+    // verify device token
+    const user = await userModel.findById(decoded.sub);
+    if (!user || !user.loggedInDevices.some((device) => device.token === token)) {
+      return next(createHttpError(401, "Invalid or expired token."));
+    }
 
     // Validate the decoded payload fields
     if (!decoded.sub || !decoded.role || !decoded.email) {

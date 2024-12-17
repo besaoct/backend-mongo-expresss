@@ -6,6 +6,7 @@ import { config } from './config';
 
 const app = express();
 
+app.set("trust proxy", true);
 
 app.use(
     cors({
@@ -28,9 +29,6 @@ app.get('/', (_req, res)=>{
 
 // api routes
 app.use("/api/users", userRouter);
-
-
-
 
 // Global error handler (should be at the end)
 app.use(globalErrorHandler);

@@ -5,9 +5,7 @@ import { User, UserRole } from "./userTypes";
 
 const userSchema = new Schema<User>(
   {
-    // required data
     name: { type: String, required: true },
-    email: { type: String, unique: true, required: true },
     role: {
       type: String,
       enum: Object.values(UserRole),
@@ -15,19 +13,23 @@ const userSchema = new Schema<User>(
       required:true
     },
 
+    // email
+    email: { type: String, unique: true, required: true },
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationOTP: { type: String, default: undefined},
+    emailVerificationOTPExpires:{ type: Date, default: undefined},
+
   // password
     password: { type: String, required: true },
-    passwordResetToken: { type: String, default: undefined},
+    passwordResetOTP: { type: String, default: undefined},
     passwordResetExpires: { type: Date, default: undefined},
+    passwordResetVerified: { type: Boolean, default: undefined},
 
   //  optional user data
     avatar: { type: String , default: undefined},
     bio: { type: String, default: undefined},
     phone: { type: String , default: undefined},
 
-  // email verification
-    isVerified: { type: Boolean, default: false },
-    verificationToken: { type: String, default: undefined},
    
   // login metadata
     loginCount: { type: Number, default: 0 },
@@ -35,7 +37,9 @@ const userSchema = new Schema<User>(
     loggedInDevices: {
       type: [
         {
-          deviceName: { type: String, required: true },
+          deviceId: { type: String, required: true , default: "Unknown"},
+          deviceName: { type: String, required: true, default: "Unknown" },
+          token: { type: String, required: true },
           loginAt: { type: Date, default: Date.now },
         },
       ],

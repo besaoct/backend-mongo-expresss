@@ -9,10 +9,13 @@ import {
   uploadAvatar,
   validateCreateUser,
   validateLoginUser,
-  validatePasswordResetRequest,
+  validateRequestPasswordReset,
   validateResetPassword,
   validateUpdateUser,
+  validateVerifyEmail,
+  validateVerifyOTP,
   verifyEmail,
+  verifyPasswordResetOTP,
 } from "./userController";
 
 import { jwtMiddleware } from "../../middlewares/jwtAuthMiddleware";
@@ -22,9 +25,12 @@ const userRouter = express.Router();
 
 // auth routes
 userRouter.post("/register", validateCreateUser, createUser);
-userRouter.get("/verify-email", verifyEmail);
+userRouter.post("/verify-email", validateVerifyEmail, verifyEmail);
 userRouter.post("/login", validateLoginUser, loginUser);
-userRouter.post("/request-password-reset", validatePasswordResetRequest, requestPasswordReset);
+
+// reset password routes
+userRouter.post("/request-password-reset", validateRequestPasswordReset, requestPasswordReset);
+userRouter.post("/verify-otp", validateVerifyOTP, verifyPasswordResetOTP);
 userRouter.post("/reset-password", validateResetPassword, resetPassword);
 
 // with jwt auth middleware

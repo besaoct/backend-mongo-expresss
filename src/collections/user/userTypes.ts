@@ -6,15 +6,20 @@ export enum UserRole {
 
 export interface User {
   
-    //  required data
     _id: string;
     name: string;
-    email: string;
     role: UserRole;
+
+    // email
+    email: string;
+    isEmailVerified: boolean; 
+    emailVerificationOTP?: string,
+    emailVerificationOTPExpires?: Date,
 
     // password
     password: string;
-    passwordResetToken?: string,
+    passwordResetVerified?: boolean,
+    passwordResetOTP?: string,
     passwordResetExpires?: Date,
 
     // optional user data
@@ -22,15 +27,13 @@ export interface User {
     bio?:string;
     phone?:string;
 
-    // email verification 
-    isVerified: boolean; 
-    verificationToken?: string;
-
     // login meta
     loginCount: number,
     lastLoginAt: Date,
     loggedInDevices: {
+      deviceId:string
       deviceName: string;
+      token: string;
       loginAt: Date;
     }[];
 
