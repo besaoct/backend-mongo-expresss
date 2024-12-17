@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+
+    "moduleDetection": "auto",
+    "baseUrl": "./",       // Required for `paths`
+
+    "outDir": "./dist",    // Output folder 
+    "rootDir": "./src",    // Source folder
+    "moduleResolution": "node",
+
+    "esModuleInterop": true,
+    "strict": true,
+
+    // "types": ["node", "express"],
+    // "typeRoots": ["./node_modules/@types", "./src/types"],
+
+    // "allowJs": false
+  },
+  "include": ["src/**/*", "src/middlewares/types.d.ts"],
+  "exclude": ["node_modules"]
+}
