@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from "uuid"; // UUID for sessionId generation
 
 /* 
 |--------------------------------------------------------------------------
-| Utility Function: Generate 6-Digit OTP, Access Token, Refresh token
+| Utility Function: Generate 6-Digit OTP
 |--------------------------------------------------------------------------
 */
 const generateOTP = (): string => Math.floor(100000 + Math.random() * 900000).toString();
