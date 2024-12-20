@@ -1,46 +1,72 @@
 //user model
 
 import { model, Schema } from "mongoose";
-import { User, UserRole } from "./userTypes";
+import { User } from "./userTypes";
+
+// Enum for visibility
+export enum Visibility {
+  Private = "private",
+  Public = "public",
+}
+
+// Enum for Two-Factor Authentication (TFA) status
+export enum TfaEnabled {
+  Yes = "yes",
+  No = "no",
+}
 
 const userSchema = new Schema<User>(
   {
     name: { type: String, required: true },
     role: {
       type: String,
-      enum: Object.values(UserRole),
-      default: UserRole.USER,
-      required:true
+      default: "user",
+      required: true,
+    },
+    visibility: {
+      type: String,
+      enum: Object.values(Visibility), // Enum values for validation
+      default: Visibility.Private,
+      required: true,
     },
 
-    // email
+    // ⁡⁣⁣⁢email⁡
     email: { type: String, unique: true, required: true },
-    isEmailVerified: { type: Boolean, default: false },
-    emailVerificationOTP: { type: String, default: undefined},
-    emailVerificationOTPExpires:{ type: Date, default: undefined},
+    isEmailVerified: { type: Boolean, default: false, required: true },
+    emailVerificationOTP: { type: String, default: null },
+    emailOTPExpirationInMins: { type: Number, default: 10 },
+    emailVerificationOTPExpires: { type: Date, default: null },
 
-  // password
+    // ⁡⁣⁣⁢password⁡
     password: { type: String, required: true },
-    passwordResetOTP: { type: String, default: undefined},
-    passwordResetExpires: { type: Date, default: undefined},
-    passwordResetVerified: { type: Boolean, default: undefined},
+    passwordResetVerified: { type: Boolean, default: null },
+    passwordResetOTP: { type: String, default: null },
+    passwordOTPExpirationInMins: { type: Number, default: 10 },
+    passwordResetExpires: { type: Date, default: null },
 
-  //  optional user data
-    avatarUrl: { type: String , default: undefined},
-    bio: { type: String, default: undefined},
-    phone: { type: String , default: undefined},
+    // ⁡⁣⁣⁢tfa (two factor authentication)⁡
+    tfaEnabled: { type: String, enum: Object.values(TfaEnabled), default: TfaEnabled.No, required: true }, 
+    tfaOTPVerified: { type: Boolean, default: null },
+    tfaResetOTP: { type: Boolean, default: null },
+    tfaOTPExpirationInMins: { type: Number, default: 10 },
+    tfaResetExpires: { type: Date, default: null },
 
-   
-  // login metadata
-    loginCount: { type: Number, default: 0 },
-    lastLoginAt: { type: Date,  default: Date.now},
+    // ⁡⁣⁣⁢ optional user data⁡
+    avatarUrl: { type: String, default: null },
+    bio: { type: String, default: null },
+    phone: { type: String, default: null },
+
+    // ⁡⁣⁣⁢login metadata⁡
+    loginCount: { type: Number, default: 0, required: true },
+    lastLoginAt: { type: Date, default: Date.now, required: true },
+    LimitNumberOfLoggedInDevices: { type: Number, default: 5, required: true },
     loggedInDevices: {
       type: [
         {
-          deviceId: { type: String, required: true , default: "Unknown"},
-          deviceName: { type: String, required: true, default: "Unknown" },
-          sessionId: { type: String, required:true},
-          loginAt: { type: Date, default: Date.now },
+          deviceId: { type: String, default: "Unknown", required: true },
+          deviceName: { type: String, default: "Unknown", required: true },
+          sessionId: { type: String, default: "Unknown", required: true },
+          loginAt: { type: Date, default: Date.now, required: true },
         },
       ],
       default: [],

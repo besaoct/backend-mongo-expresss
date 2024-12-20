@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import userModel from "./userModel";
 import {  JwtPayload, sign, verify, } from "jsonwebtoken";
 import { config } from "../../config";
-import { User, UserRole } from "./userTypes";
+import { User, } from "./userTypes";
 import { validationResult } from "express-validator";
 import { sendOTPResetEmail, sendVerificationEmail } from "../../services/mail";
 import DeviceDetector from "device-detector-js";
@@ -63,7 +63,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
       name,
       email,
       password: hashedPassword,
-      role: role || UserRole.USER,
+      role: role || 'user',
       emailVerificationOTP: verificationOTP,
       verificationOTPExpires: otpExpiry,
     });
@@ -93,12 +93,12 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
-    return next(
-      createHttpError(400, {
-        message: "Validation failed",
-        errors: errors.array(),
-      }),
-    );
+    res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
+    });
+    return next();
   }
 
   const { email, otp } = req.body;
@@ -112,9 +112,9 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
 
     // Check if email is already verified
     if (user.isEmailVerified) {
-      res.status(200).json({
-        success: true,
-        message: "Email is already verified.",
+      res.status(410).json({
+        success: false,
+        message: "Email is already verified. OTP is no longer valid.",
       });
 
       return next();
@@ -126,18 +126,18 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
       (user.emailVerificationOTPExpires &&
         new Date() > new Date(user.emailVerificationOTPExpires))
     ) {
-      return next(createHttpError(400, "Invalid or expired OTP."));
+      return next(createHttpError(401, "OTP is expired or invalid. Please request a new OTP by logging in."));
     }
 
     // Mark the user as verified
     user.isEmailVerified = true;
-    user.emailVerificationOTP = undefined;
-    user.emailVerificationOTPExpires = undefined;
+    user.emailVerificationOTP = null;
+    user.emailVerificationOTPExpires = null;
     await user.save();
 
-    res.status(200).json({
+    res.status(202).json({
       success: true,
-      message: "Email verified successfully!",
+      message: "Email successfully verified.",
     });
   } catch (err) {
     return next(createHttpError(500, `Error verifying email: ${err}`));
@@ -156,7 +156,18 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
 */
 const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   
-  
+    // Input validation
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errors.array(),
+      });
+      return next();
+    }
+
+    
   const hashDeviceId = (ip: string, deviceName: string): string => {
     const rawId = `${ip}_${deviceName}`;
     return createHash("sha256").update(rawId).digest("hex");
@@ -179,12 +190,6 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   // Combine and hash IP and DeviceName
   const uniqueDeviceId = hashDeviceId(ipAddress, deviceName);
 
-  // Input validation
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return next(createHttpError(400, { errors: errors.array() }));
-  }
-
   const { email, password } = req.body;
 
   try {
@@ -195,10 +200,10 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
     }
 
     // Check if the email is verified
-    if (!user.isEmailVerified) {
+    if (!user.isEmailVerified ) {
       // Generate a new OTP and update the user document
       const newOTP = generateOTP();
-      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // OTP valid for 10 minutes
+      const otpExpiry = new Date(Date.now() + (Number(user.emailOTPExpirationInMins) || 10)  * 60 * 1000); // OTP valid for 10 minutes (default)
       user.emailVerificationOTP = newOTP;
       user.emailVerificationOTPExpires = otpExpiry;
       await user.save();
@@ -280,8 +285,8 @@ const refreshToken = sign(
 
 
     // Limit the number of devices (keep only the last 5)
-    if (user.loggedInDevices.length > 5) {
-      user.loggedInDevices = user.loggedInDevices.slice(-5); // Keep only the last 5 devices
+    if (user.loggedInDevices.length > (Number(user.LimitNumberOfLoggedInDevices) || 5)) {
+      user.loggedInDevices = user.loggedInDevices.slice(-(Number(user.LimitNumberOfLoggedInDevices) || 5)); // Keep only the last 5 devices(default)
     }
 
     // Save the updated user details
@@ -372,18 +377,18 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
   // Validate inputs using express-validator
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return next(
-      createHttpError(400, {
-        message: "Validation failed",
-        errors: errors.array(),
-      }),
-    );
+    res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
+    });
+    return next();
   }
 
   if (!req.user)
     throw createHttpError(401, "Unauthorized: No user found in request.");
   const userId = req.user.sub; // Decoded JWT user ID added by jwtMiddleware
-  const { name, bio, avatarUrl, phone, password } = req.body;
+  const { name, bio, avatarUrl, phone, visibility, tfaEnabled, password } = req.body;
 
   try {
     // Fetch user by ID (excluding sensitive fields)
@@ -398,6 +403,8 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
     if (bio) user.bio = bio;
     if (avatarUrl) user.avatarUrl = avatarUrl;
     if (phone) user.phone = phone;
+    if (visibility) user.visibility = visibility; // ⁡⁢⁣⁣private⁡⁢⁣⁡⁣⁢⁣/⁡⁢⁣⁣public⁡
+    if (tfaEnabled) user.tfaEnabled= tfaEnabled; //⁡⁢⁣⁣ yes⁡⁣⁢⁣/⁡⁢⁣⁣no⁡
 
     // Handle password update securely
     if (password) {
@@ -480,12 +487,12 @@ const requestPasswordReset = async (
 ) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return next(
-      createHttpError(400, {
-        message: "Validation failed",
-        errors: errors.array(),
-      }),
-    );
+    res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
+    });
+    return next()
   }
 
   const { email } = req.body;
@@ -499,7 +506,7 @@ const requestPasswordReset = async (
 
     // Generate a 6-digit OTP and set expiry (10 minutes)
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    const otpExpiry = new Date(Date.now() + (Number(user.passwordOTPExpirationInMins) || 10 ) * 60 * 1000); // 10 minutes from now (default)
 
     // Attach OTP and expiry to user document
     user.passwordResetOTP = otp;
@@ -535,12 +542,12 @@ const verifyPasswordResetOTP = async (
 ) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return next(
-      createHttpError(400, {
-        message: "Validation failed",
-        errors: errors.array(),
-      }),
-    );
+    res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
+    });
+    return next()
   }
 
   const { email, otp } = req.body;
@@ -592,12 +599,12 @@ const resetPassword = async (
 ) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return next(
-      createHttpError(400, {
-        message: "Validation failed",
-        errors: errors.array(),
-      }),
-    );
+    res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
+    });
+    return next()
   }
 
   const { email, password } = req.body;
@@ -619,9 +626,9 @@ const resetPassword = async (
 
     // Update password and clear OTP-related data
     user.password = hashedPassword;
-    user.passwordResetOTP = undefined;
-    user.passwordResetExpires = undefined;
-    user.passwordResetVerified = undefined;
+    user.passwordResetOTP = null;
+    user.passwordResetExpires = null;
+    user.passwordResetVerified = null;
 
     await user.save();
 
@@ -726,6 +733,16 @@ const refreshToken= async (req: Request, res: Response, next: NextFunction) => {
     return next(createHttpError(401, "Invalid or expired refresh token."));
   }
 };
+
+
+/*
+|--------------------------------------------------------------------------
+| ⁡⁣⁣⁢Todo:⁡
+|--------------------------------------------------------------------------
+| ⁡⁢⁣⁡⁢⁣⁣1.⁡⁡ ⁡⁢⁢⁡⁣⁢⁣To set otp expiration time for both password otp and email otp⁡
+| ⁡⁢⁣⁣2.⁡ ⁡⁣⁢⁣Two factor authentication⁡
+| ⁡⁢⁣⁣3.⁡ ⁡⁣⁢⁣Google auth⁡
+*/
 
 
 export {

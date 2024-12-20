@@ -9,8 +9,9 @@ const globalErrorHandler = (err: HttpError, _req: Request, res: Response, _next:
     res.status(statusCode).json({
         success: false,
         message: err.message,
-        errorStack: config.env === 'development' ? err.stack : undefined,
+        errorStack: config.env === 'development' ? err.stack : null,
     });
+
 };
 
 

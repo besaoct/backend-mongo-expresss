@@ -10,7 +10,12 @@ const _config = {
     databaseUrl: process.env.MONGO_CONNECTION_STRING,
     env : process.env.NODE_ENV,
     jwtSecret: process.env.JWT_SECRET,
-    frontendDomain: process.env.FRONTEND_DOMAIN
+    appName: process.env.APP_NAME,
+    appDomain: process.env.APP_DOMAIN,
+    otherAppDomains:process.env.OTHER_APP_DOMAINS,
+    contactMail: process.env.CONTACT_MAIL,
+    emailServiceUser: process.env.EMAIL_USER,
+    emailServicePass: process.env.EMAIL_PASS
 }
 
 // config for uploading to cloudinary

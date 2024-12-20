@@ -1,5 +1,6 @@
 
 import { body } from "express-validator";
+import { TfaEnabled, Visibility } from "./userModel";
 
 /* 
 |--------------------------------------------------------------------------
@@ -40,11 +41,19 @@ const validateCreateUser = [
       .trim()
       .isLength({ max: 300 })
       .withMessage("Bio must be under 300 characters."),
-    body("avatar").optional().isURL().withMessage("Image must be a valid URL."),
+    body("avatarUrl").optional().isURL().withMessage("Image must be a valid URL."),
     body("phone")
       .optional()
       .matches(/^\+?[1-9]\d{1,14}$/)
       .withMessage("Phone number must be a valid international format."),
+      body("visibility")
+      .optional()
+      .isIn(Object.values(Visibility)) // Validate against enum values
+      .withMessage(`Visibility must be one of: ${Object.values(Visibility).join(", ")}`),
+    body("tfaEnabled")
+      .optional()
+      .isIn(Object.values(TfaEnabled)) // Validate against enum values
+      .withMessage(`TFA Enabled must be one of: ${Object.values(TfaEnabled).join(", ")}`),
     body("password")
       .optional()
       .isLength({ min: 8 })
@@ -55,7 +64,7 @@ const validateCreateUser = [
       .withMessage("Password must contain at least one special character."),
   ];
   
-  const validateVerifyEmail = [
+  const validateVerifyEmailOTP = [
     body("email").isEmail().withMessage("A valid email is required"),
     body("otp")
       .isLength({ min: 6, max: 6 })
@@ -69,7 +78,7 @@ const validateCreateUser = [
       .normalizeEmail(),
   ];
   
-  const validateVerifyOTP = [
+  const validateVerifyPasswordOTP = [
     body("email").isEmail().withMessage("A valid email is required"),
     body("otp")
       .isLength({ min: 6, max: 6 })
@@ -91,10 +100,10 @@ const validateCreateUser = [
 
   export {
     validateCreateUser,
-    validateVerifyEmail,
+    validateVerifyEmailOTP,
     validateLoginUser,
     validateUpdateUser,
     validateRequestPasswordReset,
-    validateVerifyOTP,
+    validateVerifyPasswordOTP,
     validateResetPassword,
   }

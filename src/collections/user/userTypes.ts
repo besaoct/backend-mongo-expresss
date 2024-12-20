@@ -1,35 +1,40 @@
-// Define roles
-export enum UserRole {
-  USER = "user",
-  ADMIN = "admin",
-}
-
 export interface User {
   
     _id: string;
     name: string;
-    role: UserRole;
+    role: string;
+    visibility: string;
 
     // email
     email: string;
     isEmailVerified: boolean; 
-    emailVerificationOTP?: string,
-    emailVerificationOTPExpires?: Date,
+    emailVerificationOTP: string | null,
+    emailOTPExpirationInMins: number,
+    emailVerificationOTPExpires: Date | null,
 
     // password
     password: string;
-    passwordResetVerified?: boolean,
-    passwordResetOTP?: string,
-    passwordResetExpires?: Date,
+    passwordResetVerified: boolean | null,
+    passwordResetOTP: string | null,
+    passwordOTPExpirationInMins: number,
+    passwordResetExpires: Date | null,
+
+    // tfa (two factor authentication)
+    tfaEnabled: string, //yes or no
+    tfaOTPVerified: boolean | null,
+    tfaResetOTP: string | null,
+    tfaOTPExpirationInMins: number,
+    tfaResetExpires: Date | null,
 
     // optional user data
-    avatarUrl?: string;
-    bio?:string;
-    phone?:string;
+    avatarUrl: string | null;
+    bio:string | null;
+    phone:string | null;
 
     // login meta
     loginCount: number,
     lastLoginAt: Date,
+    LimitNumberOfLoggedInDevices: number
     loggedInDevices: {
       deviceId:string
       deviceName: string;
