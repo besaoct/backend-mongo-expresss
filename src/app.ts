@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import { ensureUploadDirectoriesExist } from "./middlewares/uploadMiddlewares"; // Ensure upload directories exist
 import globalErrorHandler from "./middlewares/globalErrorHandlingMiddleware"; // Global error handler
 import { config } from "./config"; // App configuration (e.g., frontend domain)
-import userRouter from "./collections/user/userRouter"; // User routes
+import userRouter from "./modules/user/userRouter"; // User routes
 import helmet from "helmet";
 
 /* 

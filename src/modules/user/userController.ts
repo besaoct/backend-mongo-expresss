@@ -6,7 +6,7 @@ import {  JwtPayload, sign, verify, } from "jsonwebtoken";
 import { config } from "../../config";
 import { User, } from "./userTypes";
 import { validationResult } from "express-validator";
-import { sendOTPResetEmail, sendVerificationEmail } from "../../services/mail";
+import { sendOTPResetEmail, sendVerificationEmail } from "../../services/node-gmail";
 import DeviceDetector from "device-detector-js";
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid"; // UUID for sessionId generation
