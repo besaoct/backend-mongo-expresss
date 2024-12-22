@@ -2,7 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { verify, JwtPayload } from "jsonwebtoken";
 import { config } from "../config"; // Adjust the path to your config file
-import userModel from "../modules/user/userModel";
+import userModel from "../modules/auth/authUserModel";
+import { TfaEnabled } from "../modules/auth/authUserTypes";
 
 // Custom interface for JWT payload
 interface DecodedUser {
@@ -52,6 +53,10 @@ const jwtMiddleware = async (
     const user = await userModel.findById(decoded.sub);
     if (!user) {
       return next(createHttpError(401, "User not found."));
+    }
+
+    if ((user.tfaEnabled===TfaEnabled.Yes) && (!user.tfaOTPVerified)) {
+      return next(createHttpError(403, "Access denied: TFA is enabled but TFA OTP is not verified for this user."));
     }
 
     const matchingDevice = user.loggedInDevices.find(

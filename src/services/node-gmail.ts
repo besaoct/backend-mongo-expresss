@@ -104,7 +104,7 @@ export const sendVerificationEmail = async (email: string, otp: string) => {
   });
 };
 
-export const sendOTPResetEmail = async (email: string, otp: string) => {
+export const sendPasswordResetEmail = async (email: string, otp: string) => {
   const transporter = nodemailer.createTransport({
     service: "Gmail",
     auth: {
@@ -123,6 +123,31 @@ export const sendOTPResetEmail = async (email: string, otp: string) => {
     from: config.emailServiceUser,
     to: email,
     subject: "Password Reset OTP",
+    html: emailHtml,
+  });
+};
+
+
+
+export const sendTwoFactorAuthenticationOTPEmail = async (email: string, otp: string) => {
+  const transporter = nodemailer.createTransport({
+    service: "Gmail",
+    auth: {
+      user: config.emailServiceUser,
+      pass: config.emailServicePass,
+    },
+  });
+
+  const emailHtml = getEmailOTPTemplate({
+   title: "TFA OTP Request",
+   message: "We received a request to verify TFA. Use the OTP below to proceed. This OTP is valid for 10 minutes.",
+   otp: otp
+  });
+
+  await transporter.sendMail({
+    from: config.emailServiceUser,
+    to: email,
+    subject: "TFA OTP",
     html: emailHtml,
   });
 };

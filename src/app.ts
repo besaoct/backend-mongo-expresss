@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import { ensureUploadDirectoriesExist } from "./middlewares/uploadMiddlewares"; // Ensure upload directories exist
 import globalErrorHandler from "./middlewares/globalErrorHandlingMiddleware"; // Global error handler
 import { config } from "./config"; // App configuration (e.g., frontend domain)
-import userRouter from "./modules/user/userRouter"; // User routes
+import {authRouter, userRouter } from "./modules/auth/authUserRouter"; //auth routes
 import helmet from "helmet";
 
 /* 
@@ -157,11 +157,14 @@ const setupRoutes = () => {
   /**
    * User-related routes for operations (e.g., registration, login).
    */
-  app.use("/api/users", userRouter);
+  app.use("/api/auth", authRouter);
+  app.use("/api/user", userRouter);
 
   /**
-   * add new routes below.
+   * Mathtake app backend routes
    */
+
+
 };
 
 /* 

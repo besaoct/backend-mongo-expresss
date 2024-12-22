@@ -1,21 +1,8 @@
-//user model
-
 import { model, Schema } from "mongoose";
-import { User } from "./userTypes";
+import { AuthUser, TfaEnabled, Visibility } from "./authUserTypes";
 
-// Enum for visibility
-export enum Visibility {
-  Private = "private",
-  Public = "public",
-}
 
-// Enum for Two-Factor Authentication (TFA) status
-export enum TfaEnabled {
-  Yes = "yes",
-  No = "no",
-}
-
-const userSchema = new Schema<User>(
+const authUserSchema = new Schema<AuthUser>(
   {
     name: { type: String, required: true },
     role: {
@@ -34,22 +21,24 @@ const userSchema = new Schema<User>(
     email: { type: String, unique: true, required: true },
     isEmailVerified: { type: Boolean, default: false, required: true },
     emailVerificationOTP: { type: String, default: null },
-    emailOTPExpirationInMins: { type: Number, default: 10 },
     emailVerificationOTPExpires: { type: Date, default: null },
 
     // ⁡⁣⁣⁢password⁡
     password: { type: String, required: true },
-    passwordResetVerified: { type: Boolean, default: null },
+    passwordResetOTPVerified: { type: Boolean, default: null },
     passwordResetOTP: { type: String, default: null },
-    passwordOTPExpirationInMins: { type: Number, default: 10 },
-    passwordResetExpires: { type: Date, default: null },
+    passwordResetOTPExpires: { type: Date, default: null },
 
     // ⁡⁣⁣⁢tfa (two factor authentication)⁡
-    tfaEnabled: { type: String, enum: Object.values(TfaEnabled), default: TfaEnabled.No, required: true }, 
+    tfaEnabled: {
+      type: String,
+      enum: Object.values(TfaEnabled),
+      default: TfaEnabled.No,
+      required: true,
+    },
     tfaOTPVerified: { type: Boolean, default: null },
-    tfaResetOTP: { type: Boolean, default: null },
-    tfaOTPExpirationInMins: { type: Number, default: 10 },
-    tfaResetExpires: { type: Date, default: null },
+    tfaVerificationOTP: { type: Boolean, default: null },
+    tfaVerificationOTPExpires: { type: Date, default: null },
 
     // ⁡⁣⁣⁢ optional user data⁡
     avatarUrl: { type: String, default: null },
@@ -76,4 +65,4 @@ const userSchema = new Schema<User>(
   { timestamps: true },
 );
 
-export default model<User>("User", userSchema);
+export default model<AuthUser>("User", authUserSchema);

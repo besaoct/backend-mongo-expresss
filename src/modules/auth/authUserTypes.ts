@@ -1,30 +1,40 @@
-export interface User {
+
+// Enum for visibility
+export enum Visibility {
+  Private = "private",
+  Public = "public",
+}
+
+// Enum for Two-Factor Authentication (TFA) status
+export enum TfaEnabled {
+  Yes = "yes",
+  No = "no",
+}
+
+export interface AuthUser {
   
     _id: string;
     name: string;
     role: string;
-    visibility: string;
+    visibility: Visibility;
 
     // email
     email: string;
     isEmailVerified: boolean; 
     emailVerificationOTP: string | null,
-    emailOTPExpirationInMins: number,
     emailVerificationOTPExpires: Date | null,
 
     // password
     password: string;
-    passwordResetVerified: boolean | null,
+    passwordResetOTPVerified: boolean | null,
     passwordResetOTP: string | null,
-    passwordOTPExpirationInMins: number,
-    passwordResetExpires: Date | null,
+    passwordResetOTPExpires: Date | null,
 
     // tfa (two factor authentication)
-    tfaEnabled: string, //yes or no
+    tfaEnabled: TfaEnabled, //yes or no
     tfaOTPVerified: boolean | null,
-    tfaResetOTP: string | null,
-    tfaOTPExpirationInMins: number,
-    tfaResetExpires: Date | null,
+    tfaVerificationOTP: string | null,
+    tfaVerificationOTPExpires: Date | null,
 
     // optional user data
     avatarUrl: string | null;
